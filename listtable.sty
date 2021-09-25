@@ -1,0 +1,95 @@
+\RequirePackage{expl3}
+\ProvidesExplPackage
+    {listtable}{2021/9/25}{0.1}{List Table}
+
+\RequirePackage{xparse}
+\RequirePackage{environ}
+
+\regex_new:N \c_listtable_mark
+\regex_gset:Nn \c_listtable_mark { ^[\r\n]+[\*\-] }
+
+\regex_new:N \c_listtable_nested_mark
+\regex_gset:Nn \c_listtable_nested_mark { ^[\r\n]+[\s]{2,}[\*\-] }
+
+\tl_new:N \g__result_tl
+\scan_new:N \s_lastline
+
+\cs_new:Npn \g_parse_listtable:n #1 {
+  \tl_if_head_eq_meaning:nNTF { #1 } { \s_lastline }
+  {
+    \tl_put_right:Nn \g__result_tl { \\\hline }
+  }
+  {
+    \regex_match:NnTF \c_listtable_nested_mark { #1 }
+    {
+      \tl_put_right:Nn \g__result_tl { & }
+      \tl_set:Nn \l__rest_tl { #1 }
+      \regex_replace_once:NnN \c_listtable_nested_mark { } \l__rest_tl
+      
+      \exp_args:No \g_parse_listtable:n { \l__rest_tl }
+    }
+    
+    {      
+      \regex_match:NnTF \c_listtable_mark { #1 }
+      {
+        \tl_if_empty:NTF \g__result_tl
+        {
+          \tl_put_right:Nn \g__result_tl { \hline }
+        }
+        {
+          \tl_put_right:Nn \g__result_tl { \\\hline }
+        }
+        \tl_set:Nn \l__rest_tl { #1 }
+        \regex_replace_once:NnN \c_listtable_mark { } \l__rest_tl
+        
+        \exp_args:No \g_parse_listtable:n { \l__rest_tl }
+      }
+      {
+        
+        \tl_set:Nx \l__head_tl { \tl_head:n { #1 } }
+        \tl_set:Nx \l__tail_tl { \tl_tail:n { #1 } }
+        
+        \tl_if_empty:NTF \g__result_tl
+        {
+          % We haven't met the first header yet.
+        }
+        {
+          \exp_args:No \tl_if_head_is_group:nTF { \l__tail_tl }
+          {
+            % The surrounding braces will be discard. So we put them explicitly.
+            % `\c_group_begin_token` and `\c_group_end_token` won't work with certain macros like \fbox.
+            % `\expandafter { \iffalse}\fi` and `\iffalse{\fi` won't help neither.
+            \tl_put_right:No \g__result_tl { \l__head_tl }
+            \tl_put_right:Nx \g__result_tl { { \tl_head:N \l__tail_tl } }
+
+            \exp_args:Nf \g_parse_listtable:n { \tl_tail:N  \l__tail_tl }
+          }
+          {
+            \tl_put_right:No \g__result_tl { \l__head_tl }
+            \exp_args:No \g_parse_listtable:n { \l__tail_tl }
+          }
+        }
+        
+      }
+    }
+  }
+}
+
+
+\NewEnviron{parse_listtable}[1]{
+  \exp_args:No \g_parse_listtable:n { \BODY\s_lastline }
+  
+  \tl_put_left:Nn \g__result_tl {\begin{tabular}{#1}}
+  \tl_put_right:Nn \g__result_tl {\end{tabular}}
+
+  \tl_use:N \g__result_tl
+}
+
+% unexpandable macro like \sqrt requiers \noexpand 
+\NewDocumentEnvironment{listtable}{ }{%
+  \obeylines%
+  \obeyspaces%
+  \parse_listtable%
+}{%
+  \endparse_listtable%
+}

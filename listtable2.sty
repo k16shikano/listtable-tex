@@ -1,0 +1,49 @@
+\RequirePackage{expl3}
+\ProvidesExplPackage
+    {listtable2}{2021/9/18}{0.1}{List Table}
+
+\RequirePackage{xparse}
+\RequirePackage{environ}
+
+\cs_set_nopar:Npn \exp_args:NNf { \::N \::f \::: }
+
+\regex_new:N \c_listtable_mark
+\regex_gset:Nn \c_listtable_mark { [\n\r]+[\*\-] }
+
+\regex_new:N \c_listtable_nested_mark
+\regex_gset:Nn \c_listtable_nested_mark { [\n\r]+[\s]{2,}[\*\-] }
+
+\seq_new:N \l_table_lines_seq
+\seq_new:N \l_cell_items_seq
+\scan_new:N \s_lastline
+
+\NewEnviron{parse_listtable}[1]{
+  % \regex_split:NnN puts an unseen token after the sequence, which isn't counted as its item.
+  % That causes the ugry empty cell below the last line of the resulted table, 
+  % if we just put the trailing "\\" for every \l_table_lines_seq.
+  % \s_lastline is put to detect the last line, which should be evaded the trailing "\\", 
+  
+  \exp_args:NNf \regex_split:NnN \c_listtable_mark { \BODY\s_lastline } \l_table_lines_seq
+  \seq_remove_all:Nn \l_table_lines_seq {   }
+  
+  \begin{tabular}{#1}\hline
+    \seq_map_inline:Nn \l_table_lines_seq
+    {
+      \exp_args:NNf \regex_split:NnN \c_listtable_nested_mark { ##1 } \l_cell_items_seq
+      \seq_get_right:NN \l_cell_items_seq \c_tmpa_tl
+      \exp_args:Nnf \regex_match:nnTF { \c{s_lastline} } { \c_tmpa_tl }
+        { \seq_use:Nnnn \l_cell_items_seq { } { & } { & } }
+        { \seq_put_right:Nn \l_cell_items_seq { \c_empty_tl }
+          \seq_use:Nnnn \l_cell_items_seq { } { & } { \\\hline } }
+    }\\\hline
+  \end{tabular}
+}
+
+\NewDocumentEnvironment{listtable}{ }{%
+  \obeylines%
+  \obeyspaces%
+  \parse_listtable%
+}{%
+  \endparse_listtable%
+}
+
