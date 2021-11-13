@@ -8,7 +8,7 @@
 \cs_set_nopar:Npn \exp_args:NNf { \::N \::f \::: }
 
 \regex_new:N \c_listtable_mark
-\regex_gset:Nn \c_listtable_mark { [\n\r]+[\*\-] }
+\regex_gset:Nn \c_listtable_mark { [\n\r]+[\*\-][\s]+[\*\-] }
 
 \regex_new:N \c_listtable_nested_mark
 \regex_gset:Nn \c_listtable_nested_mark { [\n\r]+[\s]{2,}[\*\-] }
